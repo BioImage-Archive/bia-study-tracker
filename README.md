@@ -17,7 +17,7 @@ This project uses Poetry for dependency management.
 
 ```
 # Clone the repo
-git clone git@gitlab.ebi.ac.uk:bioimage-archive/bia-study-tracker.git
+git clone https://github.com/BioImage-Archive/bia-study-tracker.git
 cd bia-study-tracker
 
 # Install dependencies
