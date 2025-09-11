@@ -100,9 +100,20 @@ def generate_detailed_report_file(
     ]
     df_no_datasets = pd.DataFrame(no_ds_data, columns=["accession_id", "alpha_url", "original_study_url"])
 
-    # Write both sheets to one Excel file
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df_no_images.to_excel(writer, sheet_name="no_images", index=False)
-        df_no_datasets.to_excel(writer, sheet_name="no_datasets", index=False)
+        for df, sheet in [(df_no_images, "no_images"), (df_no_datasets, "no_datasets")]:
+            df.to_excel(writer, sheet_name=sheet, index=False)
+            workbook = writer.book
+            worksheet = writer.sheets[sheet]
+
+            # Bold headers
+            header_format = workbook.add_format({"bold": True})
+            for col_num, value in enumerate(df.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+
+            # Auto-adjust column widths
+            for i, col in enumerate(df.columns):
+                max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+                worksheet.set_column(i, i, max_len)
 
     return output
