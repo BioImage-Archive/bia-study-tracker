@@ -535,18 +535,7 @@ files = [
     {file = "wcwidth-0.2.13.tar.gz", hash = "sha256:72ea0c06399eb286d978fdedb6923a9eb47e1c486ce63e9b4e64fc18303972b5"},
 ]
 
-[[package]]
-name = "xlsxwriter"
-version = "3.2.5"
-description = "A Python module for creating Excel XLSX files."
-optional = false
-python-versions = ">=3.8"
-files = [
-    {file = "xlsxwriter-3.2.5-py3-none-any.whl", hash = "sha256:4f4824234e1eaf9d95df9a8fe974585ff91d0f5e3d3f12ace5b71e443c1c6abd"},
-    {file = "xlsxwriter-3.2.5.tar.gz", hash = "sha256:7e88469d607cdc920151c0ab3ce9cf1a83992d4b7bc730c5ffdd1a12115a7dbe"},
-]
-
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "1328c9926443f8638fa571c34198e243a75980882ba9c6fa97eafeadd6e716e4"
+content-hash = "4ec1ff68601998957415e8893c16f4c284da5d3c185c3f856ba58903440cd081"
