@@ -62,8 +62,8 @@ class BIAStudyTracker:
 
     def generate_report(self) -> Tuple[Dict[str, Any], str, Path]:
         report = generate_bia_report(self.studies_in_bia)
-        logger.info(f"{report.images.n_without} studies without images (showing up to 10): {report.images.accession_ids_without}")
-        logger.info(f"{report.dataset.n_without} studies without datasets (showing up to 10): {report.dataset.accession_ids_without}")
+        logger.info(f"{report.images.n_without} studies without images (showing up to 10): {report.images.accession_ids_without[:10]}")
+        logger.info(f"{report.dataset.n_without} studies without datasets (showing up to 10): {report.dataset.accession_ids_without[:10]}")
 
         summary = get_summary_statistics(report)
         logger.info(f"Summary: {summary}")
