@@ -2,41 +2,40 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Tuple, Dict, Any
 import pandas as pd
+import logging
 
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Statistics:
-    n_with: int
-    n_without: int
-    accession_ids_without: List[str]
+    studies_with: List[str]
+    studies_without: List[str]
 
 
 @dataclass
 class BIAReport:
     total_studies: int
-    images: Statistics
+    image: Statistics
     dataset: Statistics
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "Total studies checked": self.total_studies,
-            "images": {
-                "with": self.images.n_with,
-                "without": self.images.n_without,
-                "studies_without_images_accession_ids": self.images.accession_ids_without,
+            "total_studies": self.total_studies,
+            "image": {
+                "studies_with": self.image.studies_with,
+                "studies_without": self.image.studies_without,
             },
             "dataset": {
-                "with": self.dataset.n_with,
-                "without": self.dataset.n_without,
-                "studies_without_datasets_accession_ids": self.dataset.accession_ids_without,
+                "studies_with": self.dataset.studies_with,
+                "studies_without": self.dataset.studies_without,
             },
         }
 
 
-def _categorize_studies(studies: List[Dict[str, Any]]) -> Tuple[List[str], List[str], List[str]]:
+def _categorize_studies(studies: List[Dict[str, Any]]) -> List[List[str]]:
     with_images, without_datasets = [], []
-    for hit in studies:
-        study = hit["_source"]
+    for study in studies:
         acc = study["accession_id"]
         datasets = study.get("dataset")
         if not datasets:
@@ -45,9 +44,10 @@ def _categorize_studies(studies: List[Dict[str, Any]]) -> Tuple[List[str], List[
         if any(_has_images(ds) for ds in datasets):
             with_images.append(acc)
 
-    all_ids = {hit["_source"]["accession_id"] for hit in studies}
+    all_ids = {study["accession_id"] for study in studies}
     without_images = list(all_ids - set(with_images) - set(without_datasets))
-    return with_images, without_images, without_datasets
+    with_datasets = list(all_ids  - set(without_datasets))
+    return [with_images, without_images, with_datasets, without_datasets]
 
 
 def _has_images(dataset: Dict[str, Any]) -> bool:
@@ -58,46 +58,42 @@ def generate_bia_report(studies: List[Dict[str, Any]]) -> BIAReport:
     if not studies:
         raise ValueError("Studies list cannot be empty")
 
-    with_imgs, without_imgs, without_datasets = _categorize_studies(studies)
+    with_imgs, without_imgs, with_ds, without_ds = _categorize_studies(studies)
     total = len(studies)
-    with_datasets = total - len(without_datasets)
 
     report = BIAReport(
         total_studies=total,
-        images=Statistics(len(with_imgs), len(without_imgs), without_imgs),
-        dataset=Statistics(with_datasets, len(without_datasets), without_datasets),
+        image=Statistics(with_imgs, without_imgs),
+        dataset=Statistics(with_ds, without_ds),
     )
     return report
+
+def generate_object_for_df(data: List) -> List:
+    return [
+        [
+            acc,
+            f"https://alpha.bioimagearchive.org/bioimage-archive/study/{acc}",
+            f"https://www.ebi.ac.uk/biostudies/BioImages/studies/{acc}",
+        ]
+        for acc in data
+    ]
 
 
 def generate_detailed_report_file(
     report: Dict[str, Any],
-    output: Path = Path("detailed_report.xlsx")
+    output: Path
 ) -> Path:
     """Generate a detailed Excel report with two sheets:
        - Studies with datasets but no images
        - Studies without datasets
     """
+    logging.info(f"Generating detailed report file {output}")
     # Sheet 1: studies with datasets but no images
-    no_img_data = [
-        [
-            acc,
-            f"https://alpha.bioimagearchive.org/bioimage-archive/study/{acc}",
-            f"https://www.ebi.ac.uk/biostudies/BioImages/studies/{acc}",
-        ]
-        for acc in report["images"]["studies_without_images_accession_ids"]
-    ]
+    no_img_data = generate_object_for_df(report["image"]["studies_without"])
     df_no_images = pd.DataFrame(no_img_data, columns=["accession_id", "alpha_url", "original_study_url"])
 
     # Sheet 2: studies without datasets
-    no_ds_data = [
-        [
-            acc,
-            f"https://alpha.bioimagearchive.org/bioimage-archive/study/{acc}",
-            f"https://www.ebi.ac.uk/biostudies/BioImages/studies/{acc}",
-        ]
-        for acc in report["dataset"]["studies_without_datasets_accession_ids"]
-    ]
+    no_ds_data = generate_object_for_df(report["dataset"]["studies_without"])
     df_no_datasets = pd.DataFrame(no_ds_data, columns=["accession_id", "alpha_url", "original_study_url"])
 
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
@@ -115,5 +111,6 @@ def generate_detailed_report_file(
             for i, col in enumerate(df.columns):
                 max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
                 worksheet.set_column(i, i, max_len)
+            logger.info(f"Added sheet {sheet} to the detailed report file {output}")
 
     return output

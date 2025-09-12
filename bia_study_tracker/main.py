@@ -13,9 +13,9 @@ app = typer.Typer(help="Study tracker: Tracks ingested studies and creates a rep
 def main():
     try:
         tracker = BIAStudyTracker()
-        report, message, path = tracker.generate_report()
+        report, path = tracker.generate_report()
         bot = SlackReportBot()
-        bot.run(data=message, file_path=str(path))
+        bot.run(data=report, file_path=str(path))
     except Exception as e:
         logger.error(f"Application error: {e}")
 

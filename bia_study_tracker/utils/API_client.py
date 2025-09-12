@@ -2,15 +2,10 @@ import requests
 import logging
 
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def handle_search_results(response):
-    results = response["hits"]["hits"]
-    accession_ids = []
-    for result in results:
-        accession_ids.append(result["_source"]["accession_id"])
-    return accession_ids
+    return [hit["_source"] for hit in response["hits"]["hits"] ]
 
 
 def flatten_list(list_of_lists):
@@ -22,7 +17,7 @@ class API:
         self.link = link
         self.page_size = 100
 
-    def request(self, endpoint):
+    def request(self, endpoint: str):
         response = {}
         try:
             response = requests.get(f"{self.link}/{endpoint}")
@@ -35,19 +30,19 @@ class API:
             logger.info(f"An error occurred: {e}")
             return None
 
-    def get_all_studies_from_search(self, endpoint):
+    def get_all_studies_from_search(self, endpoint: str):
         endpoint = endpoint + f"&pagination.page_size={self.page_size}"
         first_page = endpoint + f"&pagination.page=1"
         results = []
         first_request = self.request(first_page)
         if first_request:
-            results.append(first_request["hits"]["hits"])
+            results.append(handle_search_results(first_request))
             total_pages = first_request["pagination"]["total_pages"]
             page = 2
             while page <= total_pages:
                 response = self.request(endpoint + f"&pagination.page={page}")
                 if response:
-                    results.append(response["hits"]["hits"])
+                    results.append(handle_search_results(response))
                     page += 1
 
         return flatten_list(results)
