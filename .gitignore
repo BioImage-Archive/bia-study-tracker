@@ -1,0 +1,7 @@
+.idea
+
+.venv
+.env
+.DS_Store
+__pycache__
+detailed_report.xlsx
