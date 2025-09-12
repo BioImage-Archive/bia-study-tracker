@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from bia_study_tracker.utils.API_client import API
-from bia_study_tracker.utils.reports import generate_bia_report, generate_detailed_report_file, BIAReport
-
+from bia_study_tracker.utils.reports import generate_bia_report, generate_detailed_report_file, BIAReport, \
+    generate_conversion_report
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +29,23 @@ class BIAStudyTracker:
             raise ValueError("API endpoint must be provided (param or PUBLIC_SEARCH_API env var)")
         self.client = API(endpoint)
         self._studies_cache: Optional[List[Dict[str, Any]]] = None
+        self._images_cache: Optional[List[Dict[str, Any]]] = None
         logger.info(f"BIAStudyTracker initialized with endpoint: {endpoint}")
 
 
     @property
     def studies_in_bia(self) -> List[Dict[str, Any]]:
         if self._studies_cache is None:
-            self._studies_cache = self.client.get_all_studies_from_search("search/fts?query=")
+            self._studies_cache = self.client.get_all_objects_from_search("search/fts?query=")
             logger.info(f"Retrieved {len(self._studies_cache)} studies from BIA")
         return self._studies_cache
 
+    @property
+    def images_in_bia(self) -> List[Dict[str, Any]]:
+        if self._images_cache is None:
+            self._images_cache = self.client.get_all_objects_from_search("search/fts/image?query=")
+            logger.info(f"Retrieved {len(self._images_cache)} images from BIA")
+        return self._images_cache
 
     def generate_report(self) -> Tuple[Dict[str, Any], Path]:
         report = generate_bia_report(self.studies_in_bia)
@@ -49,8 +56,8 @@ class BIAStudyTracker:
         logger.info(f"Summary: {summary}")
 
         report_dict = report.to_dict() | {"summary_stats": summary, "summary_cols": ["Statistic", "Value"]}
-
-        path = generate_detailed_report_file(report_dict, Path("detailed_report.xlsx"))
+        detailed_report = generate_conversion_report(self.studies_in_bia, self.images_in_bia, report_dict["image"]["studies_with"])
+        path = generate_detailed_report_file(report_dict, detailed_report, Path("detailed_report.xlsx"))
         logger.info(f"Detailed report saved to {path}")
 
         return report_dict, path

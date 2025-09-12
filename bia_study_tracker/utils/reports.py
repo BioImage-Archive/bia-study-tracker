@@ -68,6 +68,87 @@ def generate_bia_report(studies: List[Dict[str, Any]]) -> BIAReport:
     )
     return report
 
+def has_attribute(image: dict, attr: str) -> bool:
+    return any(m.get("name") == attr for m in image.get("additional_metadata", []))
+
+def generate_conversion_report(
+    studies: List[Dict[str, Any]],
+    images: List[Dict[str, Any]],
+    studies_with_images: List[str]
+) -> Dict[str, Any]:
+
+    image_lookup = {d["uuid"]: d for d in images}
+    report: Dict[str, Any] = {}
+
+    for study in studies:
+        accession_id = study["accession_id"]
+        if accession_id not in studies_with_images:
+            continue
+
+        datasets = study.get("dataset", [])
+        study_images = [img for ds in datasets if "image" in ds for img in ds["image"]]
+        n_images = len(study_images)
+
+        n_img_rep = n_thumbnail = n_static_display = n_img_rep_have_zarr = 0
+        warnings: Dict[str, List[str]] = {
+            "missing_rep": [],
+            "missing_static_display": [],
+            "missing_thumbnail": [],
+            "missing_zarr": [],
+            "out_of_sync": [],
+        }
+
+        for i in study_images:
+            uuid = i.get("uuid")
+            img = image_lookup.get(uuid)
+
+            if not img:
+                warnings["out_of_sync"].append(uuid)
+                continue
+
+            if has_attribute(img, "image_thumbnail_uri"):
+                n_thumbnail += 1
+            else:
+                warnings["missing_thumbnail"].append(uuid)
+
+            if has_attribute(img, "image_static_display_uri"):
+                n_static_display += 1
+            else:
+                warnings["missing_static_display"].append(uuid)
+
+            reps = img.get("representation", [])
+            if not reps:
+                warnings["missing_rep"].append(uuid)
+                continue
+
+            n_img_rep += 1
+            if any(rep.get("image_format") == "A.ome.zarr" for rep in reps):
+                n_img_rep_have_zarr += 1
+            else:
+                warnings["missing_zarr"].append(uuid)
+
+            # Compact grouped log for this study
+        for category, uuids in warnings.items():
+            if uuids:
+                logger.warning(
+                    f"[{accession_id}] {category.replace('_', ' ').title()} "
+                    f"({len(uuids)}): {', '.join(uuids[:5])}"
+                    f"{' ...' if len(uuids) > 5 else ''}"
+                )
+
+        report[accession_id] = {
+            "alpha_url": f"https://alpha.bioimagearchive.org/bioimage-archive/study/{accession_id}",
+            "n_images": n_images,
+            "n_thumbnail": n_thumbnail,
+            "n_static_display": n_static_display,
+            "n_img_rep": n_img_rep,
+            "n_img_rep_have_zarr": n_img_rep_have_zarr,
+            "warnings": warnings,  # keep dict instead of huge string
+        }
+
+    return report
+
+
 def generate_object_for_df(data: List) -> List:
     return [
         [
@@ -81,6 +162,7 @@ def generate_object_for_df(data: List) -> List:
 
 def generate_detailed_report_file(
     report: Dict[str, Any],
+    conversion_report:  Dict[str, Any],
     output: Path
 ) -> Path:
     """Generate a detailed Excel report with two sheets:
@@ -96,8 +178,11 @@ def generate_detailed_report_file(
     no_ds_data = generate_object_for_df(report["dataset"]["studies_without"])
     df_no_datasets = pd.DataFrame(no_ds_data, columns=["accession_id", "alpha_url", "original_study_url"])
 
+    # Sheet 3: Conversion report
+    df_conversion_report = pd.DataFrame.from_dict(conversion_report, orient="index").reset_index(names="accession_id")
+
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        for df, sheet in [(df_no_images, "no_images"), (df_no_datasets, "no_datasets")]:
+        for df, sheet in [(df_no_images, "no_images"), (df_no_datasets, "no_datasets"), (df_conversion_report, "conversion_report")]:
             df.to_excel(writer, sheet_name=sheet, index=False)
             workbook = writer.book
             worksheet = writer.sheets[sheet]

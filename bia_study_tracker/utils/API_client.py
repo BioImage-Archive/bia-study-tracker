@@ -30,7 +30,7 @@ class API:
             logger.info(f"An error occurred: {e}")
             return None
 
-    def get_all_studies_from_search(self, endpoint: str):
+    def get_all_objects_from_search(self, endpoint: str):
         endpoint = endpoint + f"&pagination.page_size={self.page_size}"
         first_page = endpoint + f"&pagination.page=1"
         results = []
