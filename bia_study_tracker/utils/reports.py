@@ -69,7 +69,7 @@ def generate_bia_report(studies: List[Dict[str, Any]]) -> BIAReport:
     return report
 
 def has_attribute(image: dict, attr: str) -> bool:
-    return any(m.get("name") == attr for m in image.get("additional_metadata", []))
+    return attr in [m.get("name") for m in image.get("additional_metadata", [])]
 
 def generate_conversion_report(
     studies: List[Dict[str, Any]],
@@ -127,7 +127,8 @@ def generate_conversion_report(
             else:
                 warnings["missing_zarr"].append(uuid)
 
-            # Compact grouped log for this study
+        # Compact grouped log for this study
+        warnings = {k: v for k, v in warnings.items() if v}
         for category, uuids in warnings.items():
             if uuids:
                 logger.warning(
@@ -170,19 +171,29 @@ def generate_detailed_report_file(
        - Studies without datasets
     """
     logging.info(f"Generating detailed report file {output}")
-    # Sheet 1: studies with datasets but no images
+    # Sheet 1: Summary sheet
+    df_summary = pd.DataFrame.from_dict(report["summary_stats"], orient="index") \
+                  .reset_index() \
+                  .rename(columns={"index": report["summary_cols"][0], 0: report["summary_cols"][1]})
+
+    # Sheet 2: studies with datasets but no images
     no_img_data = generate_object_for_df(report["image"]["studies_without"])
     df_no_images = pd.DataFrame(no_img_data, columns=["accession_id", "alpha_url", "original_study_url"])
 
-    # Sheet 2: studies without datasets
+    # Sheet 3: studies without datasets
     no_ds_data = generate_object_for_df(report["dataset"]["studies_without"])
     df_no_datasets = pd.DataFrame(no_ds_data, columns=["accession_id", "alpha_url", "original_study_url"])
 
-    # Sheet 3: Conversion report
+    # Sheet 4: Conversion report
     df_conversion_report = pd.DataFrame.from_dict(conversion_report, orient="index").reset_index(names="accession_id")
 
+    sheets_to_add = [(df_summary, "summary_stats"),
+                     (df_no_images, "no_images"),
+                     (df_no_datasets, "no_datasets"),
+                     (df_conversion_report, "conversion_report")]
+
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        for df, sheet in [(df_no_images, "no_images"), (df_no_datasets, "no_datasets"), (df_conversion_report, "conversion_report")]:
+        for df, sheet in sheets_to_add:
             df.to_excel(writer, sheet_name=sheet, index=False)
             workbook = writer.book
             worksheet = writer.sheets[sheet]
