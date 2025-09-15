@@ -13,9 +13,9 @@ def flatten_list(list_of_lists):
 
 
 class API:
-    def __init__(self, link):
+    def __init__(self, link, page_size=100):
         self.link = link
-        self.page_size = 100
+        self.page_size = page_size
 
     def request(self, endpoint: str):
         response = {}

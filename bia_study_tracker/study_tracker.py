@@ -3,31 +3,22 @@ BIA Study Tracker module for analyzing studies and generating reports.
 """
 
 import logging
-import os
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 from bia_study_tracker.utils.API_client import API
 from bia_study_tracker.utils.reports import generate_bia_report, generate_detailed_report_file, BIAReport, \
     generate_conversion_report
+from bia_study_tracker.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
-
-def get_summary_statistics(report: BIAReport) -> Dict[str, int]:
-    return {
-        "Total Studies checked in Search": report.total_studies,
-        "Studies with datasets": len(report.dataset.studies_with),
-        "Studies without datasets": len(report.dataset.studies_without),
-        "Studies with images": len(report.image.studies_with),
-        "Studies with datasets but no images": len(report.image.studies_without),
-    }
-
 class BIAStudyTracker:
     def __init__(self, api_endpoint: Optional[str] = None) -> None:
-        endpoint = api_endpoint or os.getenv("PUBLIC_SEARCH_API")
+        settings = get_settings()
+        endpoint = api_endpoint or settings.public_search_api
         if not endpoint:
             raise ValueError("API endpoint must be provided (param or PUBLIC_SEARCH_API env var)")
-        self.client = API(endpoint)
+        self.client = API(endpoint, 100)
         self._studies_cache: Optional[List[Dict[str, Any]]] = None
         self._images_cache: Optional[List[Dict[str, Any]]] = None
         logger.info(f"BIAStudyTracker initialized with endpoint: {endpoint}")
@@ -52,7 +43,7 @@ class BIAStudyTracker:
         logger.info(f"{len(report.image.studies_without)} studies without images (showing up to 5): {report.image.studies_without[:5]}")
         logger.info(f"{len(report.dataset.studies_without)} studies without datasets (showing up to 5): {report.dataset.studies_without[:5]}")
 
-        summary = get_summary_statistics(report)
+        summary = report.get_summary_statistics()
         logger.info(f"Summary: {summary}")
 
         report_dict = report.to_dict() | {"summary_stats": summary, "summary_cols": ["Statistic", "Value"]}

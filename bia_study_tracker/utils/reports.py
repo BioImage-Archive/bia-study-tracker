@@ -1,9 +1,12 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple, Dict, Any
+from typing import List, Dict, Any
 import pandas as pd
 import logging
+from bia_study_tracker.settings import get_settings
 
+
+settings = get_settings()
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +35,14 @@ class BIAReport:
             },
         }
 
+    def get_summary_statistics(self) -> Dict[str, int]:
+        return {
+            "Total Studies checked in Search": self.total_studies,
+            "Studies with datasets": len(self.dataset.studies_with),
+            "Studies without datasets": len(self.dataset.studies_without),
+            "Studies with images": len(self.image.studies_with),
+            "Studies with datasets but no images": len(self.image.studies_without),
+        }
 
 def _categorize_studies(studies: List[Dict[str, Any]]) -> List[List[str]]:
     with_images, without_datasets = [], []
@@ -89,7 +100,7 @@ def generate_conversion_report(
         study_images = [img for ds in datasets if "image" in ds for img in ds["image"]]
         n_images = len(study_images)
 
-        n_img_rep = n_thumbnail = n_static_display = n_img_rep_have_zarr = 0
+        n_img_rep = n_thumbnail = n_img_rep_have_zarr = 0
         warnings: Dict[str, List[str]] = {
             "missing_rep": [],
             "missing_static_display": [],
@@ -98,6 +109,8 @@ def generate_conversion_report(
             "out_of_sync": [],
         }
 
+        example_image_uri = [ds.get("example_image_uri")[0] for ds in study.get("dataset", []) if len(ds.get("example_image_uri")) > 0]
+        n_static_display = len(example_image_uri)
         for i in study_images:
             uuid = i.get("uuid")
             img = image_lookup.get(uuid)
@@ -111,9 +124,7 @@ def generate_conversion_report(
             else:
                 warnings["missing_thumbnail"].append(uuid)
 
-            if has_attribute(img, "image_static_display_uri"):
-                n_static_display += 1
-            else:
+            if n_static_display == 0:
                 warnings["missing_static_display"].append(uuid)
 
             reps = img.get("representation", [])
@@ -121,10 +132,12 @@ def generate_conversion_report(
                 warnings["missing_rep"].append(uuid)
                 continue
 
-            n_img_rep += 1
-            if any(rep.get("image_format") == "A.ome.zarr" for rep in reps):
-                n_img_rep_have_zarr += 1
-            else:
+            n_img_rep += len(reps)
+            n_img_rep_have_zarr = sum(
+                1 for rep in reps if rep.get("image_format") == "A.ome.zarr"
+            )
+
+            if n_img_rep_have_zarr == 0:
                 warnings["missing_zarr"].append(uuid)
 
         # Compact grouped log for this study
@@ -138,7 +151,7 @@ def generate_conversion_report(
                 )
 
         report[accession_id] = {
-            "alpha_url": f"https://alpha.bioimagearchive.org/bioimage-archive/study/{accession_id}",
+            "website_url": f"{settings.public_website_url}/{accession_id}",
             "n_images": n_images,
             "n_thumbnail": n_thumbnail,
             "n_static_display": n_static_display,
@@ -154,7 +167,7 @@ def generate_object_for_df(data: List) -> List:
     return [
         [
             acc,
-            f"https://alpha.bioimagearchive.org/bioimage-archive/study/{acc}",
+            f"{settings.public_website_url}/{acc}",
             f"https://www.ebi.ac.uk/biostudies/BioImages/studies/{acc}",
         ]
         for acc in data
@@ -185,7 +198,9 @@ def generate_detailed_report_file(
     df_no_datasets = pd.DataFrame(no_ds_data, columns=["accession_id", "alpha_url", "original_study_url"])
 
     # Sheet 4: Conversion report
-    df_conversion_report = pd.DataFrame.from_dict(conversion_report, orient="index").reset_index(names="accession_id")
+    df_conversion_report = pd.DataFrame.from_dict(conversion_report, orient="index")\
+                            .reset_index(names="accession_id")\
+                            .sort_values("accession_id")
 
     sheets_to_add = [(df_summary, "summary_stats"),
                      (df_no_images, "no_images"),

@@ -36,7 +36,7 @@ Set the following environment variables:
 ---
 ## Usage
 
-Run the tracker manually: `poetry run python main.py`
+Run the tracker manually: `poetry run track-ingested-studies`
 
 
 ## Example Slack Output

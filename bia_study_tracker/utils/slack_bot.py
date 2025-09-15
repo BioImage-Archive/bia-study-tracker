@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-import os, ssl, certifi, logging
+import ssl, certifi, logging
 from datetime import datetime
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 from typing import Any, Dict
 from prettytable import PrettyTable
+from bia_study_tracker.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,10 @@ def format_slack_message(stats: Dict[str, Any], cols) -> str:
 
 class SlackReportBot:
     def __init__(self) -> None:
+        settings = get_settings()
         # Get Slack token from environment variable
-        self.slack_token = os.getenv('SLACK_BOT_TOKEN')
-        self.slack_channel = os.getenv('SLACK_CHANNEL')
+        self.slack_token = settings.slack_bot_token
+        self.slack_channel = settings.slack_channel
         if self.slack_token is None or self.slack_channel is None:
             logger.error("SLACK_BOT_TOKEN or SLACK_BOT_CHANNEL not set")
         ssl_ctx = ssl.create_default_context(cafile=certifi.where())
