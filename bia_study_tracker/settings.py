@@ -1,0 +1,29 @@
+from pathlib import Path
+import logging
+
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger("__main__." + __name__)
+
+
+class Settings(BaseSettings):
+    # Note env files overwrite one another in order of the list (last element overwrites previous ones)
+    # Uses api settings to get user create token when testing locally.
+    model_config = SettingsConfigDict(
+        env_file=[
+            str(Path(__file__).parents[1] / ".env_template"),
+            str(Path(__file__).parents[1] / ".env"),
+        ],
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra='ignore'
+    )
+
+    public_search_api: str = Field("https://alpha.bioimagearchive.org/search")
+    public_website_url: str = Field("https://alpha.bioimagearchive.org/bioimage-archive/study")
+    slack_bot_token: str = Field("")
+    slack_channel: str = Field("")
+
+def get_settings():
+    return Settings()
