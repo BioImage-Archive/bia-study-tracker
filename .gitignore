@@ -4,4 +4,4 @@
 .env
 .DS_Store
 __pycache__
-detailed_report.xlsx
+*detailed_report.xlsx*

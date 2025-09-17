@@ -1,5 +1,7 @@
 import requests
 import logging
+from math import ceil
+from typing import Optional
 
 
 logger = logging.getLogger(__name__)
@@ -17,10 +19,11 @@ class API:
         self.link = link
         self.page_size = page_size
 
-    def request(self, endpoint: str):
+    def request(self, api_endpoint: Optional[str] = None):
         response = {}
         try:
-            response = requests.get(f"{self.link}/{endpoint}")
+            url =  f"{self.link}{api_endpoint}" if api_endpoint.startswith("?") else f"{self.link}/{api_endpoint}"
+            response = requests.get(url)
             if response.status_code == 200:
                 return response.json()
             else:
@@ -46,3 +49,16 @@ class API:
                     page += 1
 
         return flatten_list(results)
+
+    def get_all_studies_from_biostudies(self):
+        first_result = self.request(f"?pageSize={self.page_size}&page=1")
+        total_pages = ceil(first_result["totalHits"] / first_result["pageSize"]) + 1
+        results = []
+        if first_result:
+            results.append(first_result["hits"])
+            for i in range(1, total_pages):
+                response = self.request(f"?pageSize={self.page_size}&page={i}")
+                if response:
+                    results.append(response["hits"])
+            results = set([study["accession"] for study in flatten_list(results)])
+        return results

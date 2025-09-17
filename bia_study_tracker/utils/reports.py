@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 import pandas as pd
 import logging
 from bia_study_tracker.settings import get_settings
-
+#from ngff_zarr import from_ngff_zarr
 
 settings = get_settings()
 
@@ -21,6 +21,7 @@ class BIAReport:
     total_studies: int
     image: Statistics
     dataset: Statistics
+    biostudies: Statistics
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -37,11 +38,14 @@ class BIAReport:
 
     def get_summary_statistics(self) -> Dict[str, int]:
         return {
-            "Total Studies checked in Search": self.total_studies,
-            "Studies with datasets": len(self.dataset.studies_with),
-            "Studies without datasets": len(self.dataset.studies_without),
-            "Studies with images": len(self.image.studies_with),
-            "Studies with datasets but no images": len(self.image.studies_without),
+            "Total Studies checked in Search API": self.total_studies,
+            "Total Studies checked in Biostudies API (/BioImages)": len(self.biostudies.studies_with) + len(self.biostudies.studies_without),
+            "Studies in BioStudies and BIA": len(self.biostudies.studies_with),
+            "Studies in BioStudies and not in BIA": len(self.biostudies.studies_without),
+            "Studies in BIA with datasets": len(self.dataset.studies_with),
+            "Studies in BIA without datasets": len(self.dataset.studies_without),
+            "Studies in BIA with images": len(self.image.studies_with),
+            "Studies in BIA with datasets but no images": len(self.image.studies_without),
         }
 
 def _categorize_studies(studies: List[Dict[str, Any]]) -> List[List[str]]:
@@ -58,24 +62,31 @@ def _categorize_studies(studies: List[Dict[str, Any]]) -> List[List[str]]:
     all_ids = {study["accession_id"] for study in studies}
     without_images = list(all_ids - set(with_images) - set(without_datasets))
     with_datasets = list(all_ids  - set(without_datasets))
-    return [with_images, without_images, with_datasets, without_datasets]
+    return [with_images, without_images, with_datasets, without_datasets, all_ids]
 
 
 def _has_images(dataset: Dict[str, Any]) -> bool:
     return dataset.get("image_count", 0) > 0 or bool(dataset.get("image"))
 
 
-def generate_bia_report(studies: List[Dict[str, Any]]) -> BIAReport:
-    if not studies:
+def generate_bia_report(studies_in_bia: List[Dict[str, Any]], studies_in_biostudies: List[str]) -> BIAReport:
+    if not studies_in_bia:
         raise ValueError("Studies list cannot be empty")
 
-    with_imgs, without_imgs, with_ds, without_ds = _categorize_studies(studies)
-    total = len(studies)
+    with_imgs, without_imgs, with_ds, without_ds, all_ids = _categorize_studies(studies_in_bia)
+    total = len(studies_in_bia)
+    in_bia, not_in_bia = [], []
+    for acc_id in studies_in_biostudies:
+        if acc_id in all_ids:
+            in_bia.append(acc_id)
+        else:
+            not_in_bia.append(acc_id)
 
     report = BIAReport(
         total_studies=total,
         image=Statistics(with_imgs, without_imgs),
         dataset=Statistics(with_ds, without_ds),
+        biostudies=Statistics(in_bia, not_in_bia),
     )
     return report
 
