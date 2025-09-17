@@ -5,6 +5,7 @@ import pandas as pd
 import logging
 from bia_study_tracker.settings import get_settings
 
+
 settings = get_settings()
 
 logger = logging.getLogger(__name__)
