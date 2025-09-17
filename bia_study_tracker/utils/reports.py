@@ -4,7 +4,6 @@ from typing import List, Dict, Any
 import pandas as pd
 import logging
 from bia_study_tracker.settings import get_settings
-#from ngff_zarr import from_ngff_zarr
 
 settings = get_settings()
 
