@@ -133,7 +133,7 @@ def generate_conversion_report(
                 continue
 
             n_img_rep += len(reps)
-            n_img_rep_have_zarr = sum(
+            n_img_rep_have_zarr += sum(
                 1 for rep in reps if rep.get("image_format", "").endswith("ome.zarr")
             )
 
@@ -157,7 +157,7 @@ def generate_conversion_report(
             "n_static_display": n_static_display,
             "n_img_rep": n_img_rep,
             "n_img_rep_have_zarr": n_img_rep_have_zarr,
-            "warnings": warnings,  # keep dict instead of huge string
+            "warnings": warnings if len(warnings)>0 else "",  # keep dict instead of huge string
         }
 
     return report
