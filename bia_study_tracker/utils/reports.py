@@ -134,7 +134,7 @@ def generate_conversion_report(
 
             n_img_rep += len(reps)
             n_img_rep_have_zarr = sum(
-                1 for rep in reps if rep.get("image_format") == "A.ome.zarr"
+                1 for rep in reps if rep.get("image_format", "").endswith("ome.zarr")
             )
 
             if n_img_rep_have_zarr == 0:
