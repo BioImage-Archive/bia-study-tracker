@@ -13,9 +13,9 @@ def flatten_list(list_of_lists):
 
 
 class API:
-    def __init__(self, link):
+    def __init__(self, link, page_size=100):
         self.link = link
-        self.page_size = 100
+        self.page_size = page_size
 
     def request(self, endpoint: str):
         response = {}
@@ -30,9 +30,9 @@ class API:
             logger.info(f"An error occurred: {e}")
             return None
 
-    def get_all_studies_from_search(self, endpoint: str):
-        endpoint = endpoint + f"&pagination.page_size={self.page_size}"
-        first_page = endpoint + f"&pagination.page=1"
+    def get_all_objects_from_search(self, api_endpoint: str):
+        api_endpoint = api_endpoint + f"&pagination.page_size={self.page_size}"
+        first_page = api_endpoint + f"&pagination.page=1"
         results = []
         first_request = self.request(first_page)
         if first_request:
@@ -40,7 +40,7 @@ class API:
             total_pages = first_request["pagination"]["total_pages"]
             page = 2
             while page <= total_pages:
-                response = self.request(endpoint + f"&pagination.page={page}")
+                response = self.request(api_endpoint + f"&pagination.page={page}")
                 if response:
                     results.append(handle_search_results(response))
                     page += 1

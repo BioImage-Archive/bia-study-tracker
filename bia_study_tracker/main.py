@@ -16,6 +16,7 @@ def main():
         report, path = tracker.generate_report()
         bot = SlackReportBot()
         bot.run(data=report, file_path=str(path))
+
     except Exception as e:
         logger.error(f"Application error: {e}")
 
