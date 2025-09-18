@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 import pandas as pd
 import logging
 from bia_study_tracker.settings import get_settings
-
+from ngff_zarr import from_ngff_zarr
 
 settings = get_settings()
 
@@ -100,13 +100,14 @@ def generate_conversion_report(
         study_images = [img for ds in datasets if "image" in ds for img in ds["image"]]
         n_images = len(study_images)
 
-        n_img_rep = n_thumbnail = n_img_rep_have_zarr = 0
+        n_img_rep = n_thumbnail = n_img_rep_have_zarr = n_valid_zarr = 0
         warnings: Dict[str, List[str]] = {
             "missing_rep": [],
             "missing_static_display": [],
             "missing_thumbnail": [],
             "missing_zarr": [],
             "out_of_sync": [],
+            "invalid_zarr": []
         }
 
         example_image_uri = [ds.get("example_image_uri")[0] for ds in study.get("dataset", []) if len(ds.get("example_image_uri")) > 0]
@@ -133,9 +134,16 @@ def generate_conversion_report(
                 continue
 
             n_img_rep += len(reps)
-            n_img_rep_have_zarr += sum(
-                1 for rep in reps if rep.get("image_format", "").endswith("ome.zarr")
-            )
+            for rep in reps:
+                if rep.get("image_format", "").endswith("ome.zarr"):
+                    n_img_rep_have_zarr += 1
+                    try:
+                        file_uri = rep.get("file_uri")[0]
+                        ngff = from_ngff_zarr(file_uri, validate=True)
+                        n_valid_zarr += 1
+                    except:
+                        warnings["invalid_zarr"].append(uuid)
+
 
             if n_img_rep_have_zarr == 0:
                 warnings["missing_zarr"].append(uuid)
@@ -157,6 +165,7 @@ def generate_conversion_report(
             "n_static_display": n_static_display,
             "n_img_rep": n_img_rep,
             "n_img_rep_have_zarr": n_img_rep_have_zarr,
+            "n_valid_zarr": n_valid_zarr,
             "warnings": warnings if len(warnings)>0 else "",  # keep dict instead of huge string
         }
 
