@@ -15,6 +15,8 @@ slack-sdk = "^3.36.0"
 xlsxwriter = "^3.2.5"
 pydantic = "^2.11.9"
 pydantic-settings = "^2.10.1"
+ngff-zarr = {extras = ["validate"], version = "^0.16.1"}
+aiohttp = "^3.12.15"
 
 [build-system]
 requires = ["poetry-core"]
