@@ -109,7 +109,7 @@ def generate_conversion_report(
             "out_of_sync": [],
             "invalid_zarr": []
         }
-
+        zarr_validation_error_message = ""
         example_image_uri = [ds.get("example_image_uri")[0] for ds in study.get("dataset", []) if len(ds.get("example_image_uri")) > 0]
         n_static_display = len(example_image_uri)
         for i in study_images:
@@ -141,9 +141,10 @@ def generate_conversion_report(
                         file_uri = rep.get("file_uri")[0]
                         ngff = from_ngff_zarr(file_uri, validate=True)
                         n_valid_zarr += 1
-                    except:
+                    except Exception as e:
                         warnings["invalid_zarr"].append(uuid)
-
+                        error_message = f"Image Rep UUID: {rep.get("uuid", "")} - validation error: {repr(e)}\n"
+                        zarr_validation_error_message += error_message
 
             if n_img_rep_have_zarr == 0:
                 warnings["missing_zarr"].append(uuid)
@@ -157,7 +158,8 @@ def generate_conversion_report(
                     f"({len(uuids)}): {', '.join(uuids[:5])}"
                     f"{' ...' if len(uuids) > 5 else ''}"
                 )
-
+        if len(zarr_validation_error_message) > 0:
+            logging.error(f"[{accession_id}]"+ zarr_validation_error_message)
         report[accession_id] = {
             "website_url": f"{settings.public_website_url}/{accession_id}",
             "n_images": n_images,
@@ -166,7 +168,8 @@ def generate_conversion_report(
             "n_img_rep": n_img_rep,
             "n_img_rep_have_zarr": n_img_rep_have_zarr,
             "n_valid_zarr": n_valid_zarr,
-            "warnings": warnings if len(warnings)>0 else "",  # keep dict instead of huge string
+            "warnings": warnings if len(warnings)>0 else "",
+            "zarr_validation_error_message": zarr_validation_error_message,
         }
 
     return report
