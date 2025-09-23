@@ -1,7 +1,6 @@
 import requests
 import logging
-from math import ceil
-from typing import Optional
+
 
 logger = logging.getLogger(__name__)
 

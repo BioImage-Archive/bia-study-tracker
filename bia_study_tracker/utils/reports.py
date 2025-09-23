@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Any
 import pandas as pd
 import logging
 from bia_ingest.biostudies.api import SearchResult
@@ -24,7 +24,7 @@ class BIAReport:
     dataset: Statistics
     biostudies: Statistics
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_studies": self.total_studies,
             "image": {
@@ -37,7 +37,7 @@ class BIAReport:
             },
         }
 
-    def get_summary_statistics(self) -> Dict[str, int]:
+    def get_summary_statistics(self) -> dict[str, int]:
         return {
             "Total Studies checked in Search API": self.total_studies,
             "Total Studies checked in Biostudies API (/BioImages)": len(self.biostudies.studies_with) + len(self.biostudies.studies_without),
@@ -49,7 +49,7 @@ class BIAReport:
             "Studies in BIA with datasets but no images": len(self.image.studies_without),
         }
 
-def _categorize_studies(studies: List[Dict[str, Any]]) -> List[List[str]]:
+def _categorise_bia_studies(studies: list[dict[str, Any]]) -> list[list[str]]:
     with_images, without_datasets = [], []
     for study in studies:
         acc = study["accession_id"]
@@ -66,15 +66,15 @@ def _categorize_studies(studies: List[Dict[str, Any]]) -> List[List[str]]:
     return [with_images, without_images, with_datasets, without_datasets, all_ids]
 
 
-def _has_images(dataset: Dict[str, Any]) -> bool:
+def _has_images(dataset: dict[str, Any]) -> bool:
     return dataset.get("image_count", 0) > 0 or bool(dataset.get("image"))
 
 
-def generate_bia_report(studies_in_bia: List[Dict[str, Any]], studies_in_biostudies: List[SearchResult]) -> BIAReport:
+def generate_bia_report(studies_in_bia: list[dict[str, Any]], studies_in_biostudies: list[SearchResult]) -> BIAReport:
     if not studies_in_bia:
         raise ValueError("Studies list cannot be empty")
 
-    with_imgs, without_imgs, with_ds, without_ds, all_ids = _categorize_studies(studies_in_bia)
+    with_imgs, without_imgs, with_ds, without_ds, all_ids = _categorise_bia_studies(studies_in_bia)
     total = len(studies_in_bia)
     in_bia, not_in_bia = [], []
     for study in studies_in_biostudies:
@@ -95,13 +95,13 @@ def has_attribute(image: dict, attr: str) -> bool:
     return attr in [m.get("name") for m in image.get("additional_metadata", [])]
 
 def generate_conversion_report(
-    studies: List[Dict[str, Any]],
-    images: List[Dict[str, Any]],
-    studies_with_images: List[str]
-) -> Dict[str, Any]:
+    studies: list[dict[str, Any]],
+    images: list[dict[str, Any]],
+    studies_with_images: list[str]
+) -> dict[str, Any]:
 
     image_lookup = {d["uuid"]: d for d in images}
-    report: Dict[str, Any] = {}
+    report: dict[str, Any] = {}
 
     for study in studies:
         accession_id = study["accession_id"]
@@ -113,7 +113,7 @@ def generate_conversion_report(
         n_images = len(study_images)
 
         n_img_rep = n_thumbnail = n_img_rep_have_zarr = n_valid_zarr = 0
-        warnings: Dict[str, List[str]] = {
+        warnings: dict[str, list[str]] = {
             "missing_rep": [],
             "missing_static_display": [],
             "missing_thumbnail": [],
@@ -199,8 +199,8 @@ def generate_object_for_df(data: List) -> List:
 
 
 def generate_detailed_report_file(
-    report: Dict[str, Any],
-    conversion_report:  Dict[str, Any],
+    report: dict[str, Any],
+    conversion_report:  dict[str, Any],
     output: Path
 ) -> Path:
     """Generate a detailed Excel report with two sheets:

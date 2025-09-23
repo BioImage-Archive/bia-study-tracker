@@ -3,7 +3,7 @@ import ssl, certifi, logging
 from datetime import datetime
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-from typing import Any, Dict
+from typing import Any
 from prettytable import PrettyTable
 from bia_study_tracker.settings import get_settings
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def build_message(data: Any) -> str:
     return f"*BIA-study-tracker-report - {datetime.now().strftime("%d %b %Y - %H:%M")}*\n```{data}```"
 
-def format_slack_message(stats: Dict[str, Any], cols) -> str:
+def format_slack_message(stats: dict[str, Any], cols) -> str:
     table = PrettyTable(cols)
     table.align = "l"
     for key, value in stats.items():

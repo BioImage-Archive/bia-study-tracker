@@ -4,7 +4,7 @@ BIA Study Tracker module for analyzing studies and generating reports.
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any, Optional
 from bia_study_tracker.utils.API_client import API
 from bia_study_tracker.utils.reports import generate_bia_report, generate_detailed_report_file, \
     generate_conversion_report
@@ -23,9 +23,9 @@ class BIAStudyTracker:
         if not endpoint:
             raise ValueError("API endpoint must be provided (param or PUBLIC_SEARCH_API env var)")
         self.client = API(endpoint, 100)
-        self._studies_cache: Optional[List[Dict[str, Any]]] = None
-        self._images_cache: Optional[List[Dict[str, Any]]] = None
-        self._biostudies_cache: Optional[List[Dict[str, Any]]] = None
+        self._studies_cache: Optional[list[dict[str, Any]]] = None
+        self._images_cache: Optional[list[dict[str, Any]]] = None
+        self._biostudies_cache: Optional[list[dict[str, Any]]] = None
         logger.info(f"BIAStudyTracker initialized with endpoint: {endpoint}")
 
     @property
@@ -36,20 +36,20 @@ class BIAStudyTracker:
         return self._biostudies_cache
 
     @property
-    def studies_in_bia(self) -> List[Dict[str, Any]]:
+    def studies_in_bia(self) -> list[dict[str, Any]]:
         if self._studies_cache is None:
             self._studies_cache = self.client.get_all_objects_from_search("search/fts?query=")
             logger.info(f"Retrieved {len(self._studies_cache)} studies from BIA")
         return self._studies_cache
 
     @property
-    def images_in_bia(self) -> List[Dict[str, Any]]:
+    def images_in_bia(self) -> list[dict[str, Any]]:
         if self._images_cache is None:
             self._images_cache = self.client.get_all_objects_from_search("search/fts/image?query=")
             logger.info(f"Retrieved {len(self._images_cache)} images from BIA")
         return self._images_cache
 
-    def generate_report(self) -> Tuple[Dict[str, Any], Path]:
+    def generate_report(self) -> tuple[dict[str, Any], Path]:
         report = generate_bia_report(self.studies_in_bia, self.studies_in_biostudies)
         logger.info(f"{len(report.image.studies_without)} studies without images (showing up to 5): {report.image.studies_without[:5]}")
         logger.info(f"{len(report.dataset.studies_without)} studies without datasets (showing up to 5): {report.dataset.studies_without[:5]}")
