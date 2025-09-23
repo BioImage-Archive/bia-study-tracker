@@ -71,7 +71,7 @@ def _has_images(dataset: dict[str, Any]) -> bool:
 
 
 def generate_bia_report(studies_in_bia: list[dict[str, Any]], studies_in_biostudies: list[SearchResult]) -> BIAReport:
-    if not studies_in_bia:
+    if not studies_in_bia and len(studies_in_bia) > 0:
         raise ValueError("Studies list cannot be empty")
 
     with_imgs, without_imgs, with_ds, without_ds, all_ids = _categorise_bia_studies(studies_in_bia)
