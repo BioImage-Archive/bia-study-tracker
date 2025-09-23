@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 import pandas as pd
 import logging
+from bia_ingest.biostudies.api import SearchResult
 from bia_study_tracker.settings import get_settings
 
 
@@ -69,18 +70,18 @@ def _has_images(dataset: Dict[str, Any]) -> bool:
     return dataset.get("image_count", 0) > 0 or bool(dataset.get("image"))
 
 
-def generate_bia_report(studies_in_bia: List[Dict[str, Any]], studies_in_biostudies: List[str]) -> BIAReport:
+def generate_bia_report(studies_in_bia: List[Dict[str, Any]], studies_in_biostudies: List[SearchResult]) -> BIAReport:
     if not studies_in_bia:
         raise ValueError("Studies list cannot be empty")
 
     with_imgs, without_imgs, with_ds, without_ds, all_ids = _categorize_studies(studies_in_bia)
     total = len(studies_in_bia)
     in_bia, not_in_bia = [], []
-    for acc_id in studies_in_biostudies:
-        if acc_id in all_ids:
-            in_bia.append(acc_id)
+    for study in studies_in_biostudies:
+        if study.accession in all_ids:
+            in_bia.append(study.accession)
         else:
-            not_in_bia.append(acc_id)
+            not_in_bia.append(study.accession)
 
     report = BIAReport(
         total_studies=total,

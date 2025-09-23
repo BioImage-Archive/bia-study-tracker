@@ -19,7 +19,6 @@ class Settings(BaseSettings):
     )
 
     public_search_api: str = Field("https://alpha.bioimagearchive.org/search")
-    public_biostudies_api: str = Field("https://www.ebi.ac.uk/biostudies/api/v1/BioImages/search")
     public_website_url: str = Field("https://alpha.bioimagearchive.org/bioimage-archive/study")
     slack_bot_token: str = Field("")
     slack_channel: str = Field("")
