@@ -6,8 +6,8 @@ authors = ["Tushar <tushar@ebi.ac.uk>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
-typer = "^0.17.4"
+python = "^3.13"
+typer = "^0.12.3"
 requests = "^2.32.5"
 prettytable = "^3.16.0"
 pandas = "^2.3.2"
@@ -17,6 +17,7 @@ pydantic = "^2.11.9"
 pydantic-settings = "^2.10.1"
 ngff-zarr = {extras = ["validate"], version = "^0.16.1"}
 aiohttp = "^3.12.15"
+bia-ingest = {git = "https://github.com/BioImage-Archive/bia-integrator.git", rev = "main", subdirectory = "bia-ingest"}
 
 [build-system]
 requires = ["poetry-core"]

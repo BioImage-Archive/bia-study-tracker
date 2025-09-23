@@ -8,8 +8,6 @@ logger = logging.getLogger("__main__." + __name__)
 
 
 class Settings(BaseSettings):
-    # Note env files overwrite one another in order of the list (last element overwrites previous ones)
-    # Uses api settings to get user create token when testing locally.
     model_config = SettingsConfigDict(
         env_file=[
             str(Path(__file__).parents[1] / ".env_template"),

@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Any
 import pandas as pd
 import logging
+from bia_ingest.biostudies.api import SearchResult
 from bia_study_tracker.settings import get_settings
 from ngff_zarr import from_ngff_zarr
 
@@ -21,8 +22,9 @@ class BIAReport:
     total_studies: int
     image: Statistics
     dataset: Statistics
+    biostudies: Statistics
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "total_studies": self.total_studies,
             "image": {
@@ -35,16 +37,19 @@ class BIAReport:
             },
         }
 
-    def get_summary_statistics(self) -> Dict[str, int]:
+    def get_summary_statistics(self) -> dict[str, int]:
         return {
-            "Total Studies checked in Search": self.total_studies,
-            "Studies with datasets": len(self.dataset.studies_with),
-            "Studies without datasets": len(self.dataset.studies_without),
-            "Studies with images": len(self.image.studies_with),
-            "Studies with datasets but no images": len(self.image.studies_without),
+            "Total Studies checked in Search API": self.total_studies,
+            "Total Studies checked in Biostudies API (/BioImages)": len(self.biostudies.studies_with) + len(self.biostudies.studies_without),
+            "Studies in BioStudies and BIA": len(self.biostudies.studies_with),
+            "Studies in BioStudies and not in BIA": len(self.biostudies.studies_without),
+            "Studies in BIA with datasets": len(self.dataset.studies_with),
+            "Studies in BIA without datasets": len(self.dataset.studies_without),
+            "Studies in BIA with images": len(self.image.studies_with),
+            "Studies in BIA with datasets but no images": len(self.image.studies_without),
         }
 
-def _categorize_studies(studies: List[Dict[str, Any]]) -> List[List[str]]:
+def _categorise_bia_studies(studies: list[dict[str, Any]]) -> list[list[str]]:
     with_images, without_datasets = [], []
     for study in studies:
         acc = study["accession_id"]
@@ -58,24 +63,31 @@ def _categorize_studies(studies: List[Dict[str, Any]]) -> List[List[str]]:
     all_ids = {study["accession_id"] for study in studies}
     without_images = list(all_ids - set(with_images) - set(without_datasets))
     with_datasets = list(all_ids  - set(without_datasets))
-    return [with_images, without_images, with_datasets, without_datasets]
+    return [with_images, without_images, with_datasets, without_datasets, all_ids]
 
 
-def _has_images(dataset: Dict[str, Any]) -> bool:
+def _has_images(dataset: dict[str, Any]) -> bool:
     return dataset.get("image_count", 0) > 0 or bool(dataset.get("image"))
 
 
-def generate_bia_report(studies: List[Dict[str, Any]]) -> BIAReport:
-    if not studies:
+def generate_bia_report(studies_in_bia: list[dict[str, Any]], studies_in_biostudies: list[SearchResult]) -> BIAReport:
+    if not studies_in_bia and len(studies_in_bia) > 0:
         raise ValueError("Studies list cannot be empty")
 
-    with_imgs, without_imgs, with_ds, without_ds = _categorize_studies(studies)
-    total = len(studies)
+    with_imgs, without_imgs, with_ds, without_ds, all_ids = _categorise_bia_studies(studies_in_bia)
+    total = len(studies_in_bia)
+    in_bia, not_in_bia = [], []
+    for study in studies_in_biostudies:
+        if study.accession in all_ids:
+            in_bia.append(study.accession)
+        else:
+            not_in_bia.append(study.accession)
 
     report = BIAReport(
         total_studies=total,
         image=Statistics(with_imgs, without_imgs),
         dataset=Statistics(with_ds, without_ds),
+        biostudies=Statistics(in_bia, not_in_bia),
     )
     return report
 
@@ -83,13 +95,13 @@ def has_attribute(image: dict, attr: str) -> bool:
     return attr in [m.get("name") for m in image.get("additional_metadata", [])]
 
 def generate_conversion_report(
-    studies: List[Dict[str, Any]],
-    images: List[Dict[str, Any]],
-    studies_with_images: List[str]
-) -> Dict[str, Any]:
+    studies: list[dict[str, Any]],
+    images: list[dict[str, Any]],
+    studies_with_images: list[str]
+) -> dict[str, Any]:
 
     image_lookup = {d["uuid"]: d for d in images}
-    report: Dict[str, Any] = {}
+    report: dict[str, Any] = {}
 
     for study in studies:
         accession_id = study["accession_id"]
@@ -101,7 +113,7 @@ def generate_conversion_report(
         n_images = len(study_images)
 
         n_img_rep = n_thumbnail = n_img_rep_have_zarr = n_valid_zarr = 0
-        warnings: Dict[str, List[str]] = {
+        warnings: dict[str, list[str]] = {
             "missing_rep": [],
             "missing_static_display": [],
             "missing_thumbnail": [],
@@ -187,8 +199,8 @@ def generate_object_for_df(data: List) -> List:
 
 
 def generate_detailed_report_file(
-    report: Dict[str, Any],
-    conversion_report:  Dict[str, Any],
+    report: dict[str, Any],
+    conversion_report:  dict[str, Any],
     output: Path
 ) -> Path:
     """Generate a detailed Excel report with two sheets:
