@@ -1,36 +1,132 @@
 name: BIA Study Tracker Reports
 
 on:
-  workflow_dispatch:   # manual trigger (equivalent to GitLab "manual")
+  workflow_dispatch:
   schedule:
-    # Every 2 weeks on Monday at 09:00 UTC
-    - cron: "0 9 * * 1"
+    # Every Monday at 08:00 UTC
+    - cron: "0 8 * * 1"
+    # Every Wednesday at 08:00 UTC
+    - cron: "0 8 * * 3"
 
 jobs:
-  report:
+  generate-report:
+    if: github.event.schedule == '0 7 * * 1'
     runs-on: ubuntu-latest
     env:
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
       SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
       PUBLIC_SEARCH_API: ${{ vars.PUBLIC_SEARCH_API }}
+      FIRST_RUN_DATE: ${{ vars.REPORT_FIRST_RUN_DATE }}
     strategy:
       matrix:
-        python-version: ["3.12"]
+        python-version: ["3.13"]
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Decide whether to run this Monday (biweekly)
+        id: check
+        run: |
+          if ["${{ github.event.schedule }}" != "0 7 * * 1" ]; then
+            echo "run=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Compute number of full weeks since FIRST_RUN_DATE (UTC)
+          start=$(date -u -d "${FIRST_RUN_DATE}" +%s) || { echo "run=false" >> $GITHUB_OUTPUT; exit 0; }
+          now=$(date -u +%s)
+          weeks=$(( (now - start) / 604800 ))
+          # run when weeks is even (0,2,4...)
+          if [ $((weeks % 2)) -eq 0 ]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Stop early if not scheduled this week
+        if: steps.check.outputs.run != 'true'
+        run: |
+          echo "Not this biweekly Monday. Exiting."
+          exit 0
+
       - name: Set up Python ${{ matrix.python-version }}
+        if: steps.check.outputs.run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install Poetry
+        if: steps.check.outputs.run == 'true'
         run: |
           curl -sSL https://install.python-poetry.org | python3 -
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           poetry config virtualenvs.create true
           poetry install
 
-      - name: Run study tracker
-        run: poetry run track-ingested-studies
+      - name: Run study tracker - generate report
+        if: steps.check.outputs.run == 'true'
+        run: poetry run track-ingested-studies generate-report
+
+  check-api-sync:
+    runs-on: ubuntu-latest
+    env:
+      SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
+      PUBLIC_SEARCH_API: ${{ vars.PUBLIC_SEARCH_API }}
+      PUBLIC_MONGO_API: ${{ vars.PUBLIC_MONGO_API }}
+      FIRST_RUN_DATE: ${{ vars.SYNC_FIRST_RUN_DATE }}
+    strategy:
+      matrix:
+        python-version: ["3.13"]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Decide whether to run this Wednesday (biweekly)
+        id: check
+        run: |
+          if [ "${{ github.event.schedule }}" != "0 7 * * 3" ]; then
+            echo "run=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Validate FIRST_RUN_DATE
+          if [ -z "${FIRST_RUN_DATE}" ]; then
+            echo "FIRST_RUN_DATE not set; defaulting to run=true for safety" >&2
+            echo "run=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Compute number of full weeks since FIRST_RUN_DATE (UTC)
+          start=$(date -u -d "${FIRST_RUN_DATE}" +%s) || { echo "run=false" >> $GITHUB_OUTPUT; exit 0; }
+          now=$(date -u +%s)
+          weeks=$(( (now - start) / 604800 ))
+          if [ $((weeks % 2)) -eq 0 ]; then
+            echo "run=true" >> $GITHUB_OUTPUT
+          else
+            echo "run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Stop early if not scheduled this week
+        if: steps.check.outputs.run != 'true'
+        run: |
+          echo "Not this biweekly Wednesday. Exiting."
+          exit 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        if: steps.check.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        if: steps.check.outputs.run == 'true'
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+          poetry config virtualenvs.create true
+          poetry install
+
+      - name: Run study tracker - Check API sync
+        if: steps.check.outputs.run == 'true'
+        run: poetry run track-ingested-studies check-mongo-elastic-sync

@@ -18,8 +18,9 @@ class Settings(BaseSettings):
         extra='ignore'
     )
 
-    public_search_api: str = Field("https://alpha.bioimagearchive.org/search")
-    public_website_url: str = Field("https://alpha.bioimagearchive.org/bioimage-archive/study")
+    public_search_api: str = Field("")
+    public_website_url: str = Field("")
+    public_mongo_api: str = Field("")
     slack_bot_token: str = Field("")
     slack_channel: str = Field("")
 

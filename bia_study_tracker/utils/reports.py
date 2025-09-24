@@ -249,3 +249,18 @@ def generate_detailed_report_file(
             logger.info(f"Added sheet {sheet} to the detailed report file {output}")
 
     return output
+
+
+def compare_mongo_elastic_study_list(studies_in_bia: list[dict[str, Any]], studies_in_mongo: list[dict[str, Any]]):
+    report = "*API Sync report*\n"
+    logger.info("Checking mongo elastic sync.")
+    search_accession_ids = set([study['accession_id'] for study in studies_in_bia])
+    mongo_accession_ids = set([study["accession_id"] for study in studies_in_mongo])
+    if len(search_accession_ids) < len(mongo_accession_ids):
+        report += f"`:magnifying_glass: Search API has {len(search_accession_ids)} studies but mongo has {len(mongo_accession_ids)} studies. :eyes:"
+    elif len(mongo_accession_ids) == len(search_accession_ids):
+        report += f":white_tick: Search and Mongo have equal studies. :catjam:"
+    else:
+        report += ":warning: Something doesnt add up. Search has more studies than in Mongo. :warning:"
+    logger.info(report)
+    return report
