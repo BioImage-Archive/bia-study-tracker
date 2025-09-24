@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 app = typer.Typer(help="Study tracker: Tracks ingested studies and creates a report.")
 
 @app.command()
-def main():
+def generate_report():
     try:
         tracker = BIAStudyTracker()
         report, path = tracker.generate_report()
@@ -20,6 +20,16 @@ def main():
     except Exception as e:
         logger.error(f"Application error: {e}")
 
+
+@app.command()
+def check_mongo_elastic_sync():
+    try:
+        tracker = BIAStudyTracker()
+        report = tracker.check_mongo_elastic_sync()
+        bot = SlackReportBot()
+        bot.send_message(report)
+    except Exception as ex:
+        logger.error(f"Application error: {ex}")
 
 if __name__ == "__main__":
     app()
