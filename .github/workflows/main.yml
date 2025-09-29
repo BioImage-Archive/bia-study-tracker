@@ -10,7 +10,7 @@ on:
 
 jobs:
   generate-report:
-    if: github.event.schedule == '0 7 * * 1'
+    if: github.event.schedule == '0 8 * * 1'
     runs-on: ubuntu-latest
     env:
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -68,6 +68,7 @@ jobs:
         run: poetry run track-ingested-studies generate-report
 
   check-api-sync:
+    if: github.event.schedule == '0 8 * * 3'
     runs-on: ubuntu-latest
     env:
       SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
