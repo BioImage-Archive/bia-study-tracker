@@ -27,7 +27,7 @@ jobs:
       - name: Decide whether to run this Monday (biweekly)
         id: check
         run: |
-          if ["${{ github.event.schedule }}" != "0 7 * * 1" ]; then
+          if ["${{ github.event.schedule }}" != "0 8 * * 1" ]; then
             echo "run=false" >> $GITHUB_OUTPUT
             exit 0
           fi
@@ -86,7 +86,7 @@ jobs:
       - name: Decide whether to run this Wednesday (biweekly)
         id: check
         run: |
-          if [ "${{ github.event.schedule }}" != "0 7 * * 3" ]; then
+          if [ "${{ github.event.schedule }}" != "0 8 * * 3" ]; then
             echo "run=false" >> $GITHUB_OUTPUT
             exit 0
           fi
