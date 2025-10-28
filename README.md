@@ -28,12 +28,14 @@ poetry install
 Configure your environment by either create a .env file from .env_template or set environment variables for the items in .env_template.
 Set the following environment variables:
 
-| Variable            | Description                         | Value                                                     |
-| ------------------- |-------------------------------------|-----------------------------------------------------------|
-| `PUBLIC_SEARCH_API` | Endpoint for BIA search API         | https://alpha.bioimagearchive.org/search                  |
-| `PUBLIC_WEBSITE_URL`| Website URL to point at the studies | https://alpha.bioimagearchive.org/bioimage-archive/study  |
-| `SLACK_BOT_TOKEN`   | Slack Bot User OAuth Token          | xoxb- ....                                                |
-| `SLACK_CHANNEL`     | Slack channel ID                    | CXXXXXX                                                   |
+| Variable             | Description                             | Value                                                    |
+|----------------------|-----------------------------------------|----------------------------------------------------------|
+| `PUBLIC_SEARCH_API`  | Endpoint for BIA search API             | https://alpha.bioimagearchive.org/search                 |
+| `PUBLIC_WEBSITE_URL` | Website URL to point at the studies     | https://alpha.bioimagearchive.org/bioimage-archive/study |
+| `PUBLIC_MONGO_API`   | Endpoint for BIA MONGO API              | URL                                                      |
+| `VALIDATION_FLAG`    | Validation flag for validating the ZARR | False                                                    |
+| `SLACK_BOT_TOKEN`    | Slack Bot User OAuth Token              | xoxb- ....                                               |
+| `SLACK_CHANNEL`      | Slack channel ID                        | CXXXXXX                                                  |
 
 ---
 ## Usage

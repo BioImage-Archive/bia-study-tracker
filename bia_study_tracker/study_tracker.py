@@ -18,12 +18,12 @@ logger = logging.getLogger(__name__)
 
 class BIAStudyTracker:
     def __init__(self, api_endpoint: Optional[str] = None) -> None:
-        settings = get_settings()
-        endpoint = api_endpoint or settings.public_search_api
+        self.settings = get_settings()
+        endpoint = api_endpoint or self.settings.public_search_api
         if not endpoint:
             raise ValueError("API endpoint must be provided (param or PUBLIC_SEARCH_API env var)")
         self.client = API(endpoint, 100)
-        self.mongo_client = API(settings.public_mongo_api, 100)
+        self.mongo_client = API(self.settings.public_mongo_api, 100)
         self._studies_cache: Optional[list[dict[str, Any]]] = None
         self._studies_in_mongo_cache: Optional[list[dict[str, Any]]] = None
         self._images_cache: Optional[list[dict[str, Any]]] = None
@@ -68,8 +68,9 @@ class BIAStudyTracker:
         logger.info(f"Summary: {summary}")
 
         report_dict = report.to_dict() | {"summary_stats": summary, "summary_cols": ["Statistic", "Value"]}
-        detailed_report = generate_conversion_report(self.studies_in_bia, self.images_in_bia, report_dict["image"]["studies_with"])
-        path = generate_detailed_report_file(report_dict, detailed_report, Path(f"{datetime.now().strftime("%d-%b-%Y")}-detailed_report.xlsx"))
+        detailed_report = generate_conversion_report(self.studies_in_bia, self.images_in_bia,
+                                                     report_dict["image"]["studies_with"], self.settings.validation_flag)
+        path = generate_detailed_report_file(self.studies_in_bia, report_dict, detailed_report, Path(f"{datetime.now().strftime("%d-%b-%Y")}-detailed_report.xlsx"))
         logger.info(f"Detailed report saved to {path}")
 
         return report_dict, path
