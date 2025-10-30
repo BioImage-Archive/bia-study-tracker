@@ -70,9 +70,9 @@ class BIAStudyTracker:
         report_dict = report.to_dict() | {"summary_stats": summary, "summary_cols": ["Statistic", "Value"]}
         detailed_report = generate_conversion_report(self.studies_in_bia, self.images_in_bia,
                                                      report_dict["image"]["studies_with"], self.settings.validation_flag)
-        path = generate_detailed_report_file(self.studies_in_bia, report_dict, detailed_report, Path(f"{datetime.now().strftime("%d-%b-%Y")}-detailed_report.xlsx"))
+        path, summary = generate_detailed_report_file(self.studies_in_bia, report_dict, detailed_report, Path(f"{datetime.now().strftime("%d-%b-%Y")}-detailed_report.xlsx"))
         logger.info(f"Detailed report saved to {path}")
-
+        report_dict["summary_stats"] = summary
         return report_dict, path
 
     def check_mongo_elastic_sync(self) -> str:

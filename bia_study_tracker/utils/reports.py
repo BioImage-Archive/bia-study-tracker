@@ -183,10 +183,11 @@ def generate_conversion_report(
             "n_static_display": n_static_display,
             "n_img_rep": n_img_rep,
             "n_img_rep_have_zarr": n_img_rep_have_zarr,
-            "n_valid_zarr": n_valid_zarr,
             "warnings": warnings if len(warnings)>0 else "",
-            "zarr_validation_error_message": zarr_validation_error_message,
         }
+        if validation_flag:
+            report[accession_id]["n_valid_zarr"] = n_valid_zarr
+            report[accession_id]["zarr_validation_error_message"] = zarr_validation_error_message
 
     return report
 
@@ -224,7 +225,7 @@ def generate_detailed_report_file(
     report: dict[str, Any],
     conversion_report:  dict[str, Any],
     output: Path
-) -> Path:
+) -> tuple[Path, dict]:
     """Generate a detailed Excel report with two sheets:
        - Studies with datasets but no images
        - Studies without datasets
@@ -279,7 +280,7 @@ def generate_detailed_report_file(
                 worksheet.set_column(i, i, max_len)
             logger.info(f"Added sheet {sheet} to the detailed report file {output}")
 
-    return output
+    return output, dict(zip(df_summary['Statistic'], df_summary['Value']))
 
 
 def compare_mongo_elastic_study_list(studies_in_bia: list[dict[str, Any]], studies_in_mongo: list[dict[str, Any]]):
