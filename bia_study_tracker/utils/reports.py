@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Any
+from typing import Any
 import pandas as pd
 import logging
 from bia_ingest.biostudies.api import SearchResult
 from bia_study_tracker.settings import get_settings
 from ngff_zarr import from_ngff_zarr
+from requests import get
+from collections import Counter
 
 settings = get_settings()
 
@@ -13,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Statistics:
-    studies_with: List[str]
-    studies_without: List[str]
+    studies_with: list[str]
+    studies_without: list[str]
 
 
 @dataclass
@@ -97,7 +99,8 @@ def has_attribute(image: dict, attr: str) -> bool:
 def generate_conversion_report(
     studies: list[dict[str, Any]],
     images: list[dict[str, Any]],
-    studies_with_images: list[str]
+    studies_with_images: list[str],
+    validation_flag: bool = False,
 ) -> dict[str, Any]:
 
     image_lookup = {d["uuid"]: d for d in images}
@@ -149,14 +152,15 @@ def generate_conversion_report(
             for rep in reps:
                 if rep.get("image_format", "").endswith("ome.zarr"):
                     n_img_rep_have_zarr += 1
-                    try:
-                        file_uri = rep.get("file_uri")[0]
-                        ngff = from_ngff_zarr(file_uri, validate=True)
-                        n_valid_zarr += 1
-                    except Exception as e:
-                        warnings["invalid_zarr"].append(uuid)
-                        error_message = f"Image Rep UUID: {rep.get("uuid", "")} - validation error: {repr(e)}\n"
-                        zarr_validation_error_message += error_message
+                    if validation_flag:
+                        try:
+                            file_uri = rep.get("file_uri")[0]
+                            ngff = from_ngff_zarr(file_uri, validate=True)
+                            n_valid_zarr += 1
+                        except Exception as e:
+                            warnings["invalid_zarr"].append(uuid)
+                            error_message = f"Image Rep UUID: {rep.get("uuid", "")} - validation error: {repr(e)}\n"
+                            zarr_validation_error_message += error_message
 
             if n_img_rep_have_zarr == 0:
                 warnings["missing_zarr"].append(uuid)
@@ -179,30 +183,49 @@ def generate_conversion_report(
             "n_static_display": n_static_display,
             "n_img_rep": n_img_rep,
             "n_img_rep_have_zarr": n_img_rep_have_zarr,
-            "n_valid_zarr": n_valid_zarr,
             "warnings": warnings if len(warnings)>0 else "",
-            "zarr_validation_error_message": zarr_validation_error_message,
         }
+        if validation_flag:
+            report[accession_id]["n_valid_zarr"] = n_valid_zarr
+            report[accession_id]["zarr_validation_error_message"] = zarr_validation_error_message
 
     return report
 
+def get_file_count_and_extension(accession_id: str) -> tuple[int, str]:
+    response = get(f"https://www.ebi.ac.uk/biostudies/api/v1/files/{accession_id}")
+    if response.status_code != 200:
+        return 0, "Error getting file types"
+    response_json = response.json()
+    counts = response_json["recordsTotal"]
+    extension = ["dir" if data["type"] == "directory" else data["Name"].split(".")[-1] for data in response_json["data"]]
+    return counts, ", ".join(set(extension))
 
-def generate_object_for_df(data: List) -> List:
+def get_study_information_by_accession(data: dict, accession_id: str) -> tuple[str, str, str, str]:
+    study = data.get(accession_id, {})
+    uuid , title, release_date = study.get("uuid", ""), study.get("title", ""), study.get("release_date", "")
+    dataset_url = f"{settings.public_mongo_api}/study/{uuid}/dataset?page_size=10"
+    return uuid, dataset_url, title, release_date
+
+
+def generate_object_for_df(data: list, accession_lookup: dict) -> list:
     return [
         [
             acc,
             f"{settings.public_website_url}/{acc}",
             f"https://www.ebi.ac.uk/biostudies/BioImages/studies/{acc}",
+            *get_study_information_by_accession(accession_lookup, acc),
+            *get_file_count_and_extension(acc)
         ]
         for acc in data
     ]
 
 
 def generate_detailed_report_file(
+    studies_in_bia: list,
     report: dict[str, Any],
     conversion_report:  dict[str, Any],
     output: Path
-) -> Path:
+) -> tuple[Path, dict]:
     """Generate a detailed Excel report with two sheets:
        - Studies with datasets but no images
        - Studies without datasets
@@ -213,18 +236,27 @@ def generate_detailed_report_file(
                   .reset_index() \
                   .rename(columns={"index": report["summary_cols"][0], 0: report["summary_cols"][1]})
 
+    sheets_cols = ["accession_id", "alpha_url", "original_study_url", "uuid", "dataset_url", "title",
+        "release_date", "n_files_biostudies", "file_format_biostudies (first 5 files)"]
+    accession_lookup = {d["accession_id"]: d for d in studies_in_bia}
     # Sheet 2: studies with datasets but no images
-    no_img_data = generate_object_for_df(report["image"]["studies_without"])
-    df_no_images = pd.DataFrame(no_img_data, columns=["accession_id", "alpha_url", "original_study_url"])
+    no_img_data = generate_object_for_df(report["image"]["studies_without"], accession_lookup)
+    df_no_images = pd.DataFrame(no_img_data, columns=sheets_cols).sort_values("accession_id")
 
     # Sheet 3: studies without datasets
-    no_ds_data = generate_object_for_df(report["dataset"]["studies_without"])
-    df_no_datasets = pd.DataFrame(no_ds_data, columns=["accession_id", "alpha_url", "original_study_url"])
+    no_ds_data = generate_object_for_df(report["dataset"]["studies_without"], accession_lookup)
+    df_no_datasets = pd.DataFrame(no_ds_data, columns=sheets_cols).sort_values("accession_id")
 
     # Sheet 4: Conversion report
     df_conversion_report = pd.DataFrame.from_dict(conversion_report, orient="index")\
                             .reset_index(names="accession_id")\
                             .sort_values("accession_id")
+    dicts = df_conversion_report['warnings'].apply(
+        lambda x: x if isinstance(x, dict) and x else None).dropna()
+    key_counts = Counter(k for d in dicts for k in d.keys())
+    df_summary_conversion = pd.DataFrame(key_counts.items(), columns=['Statistic', 'Value'])
+    df_summary_conversion['Statistic'] = "Studies in BIA with " + df_summary_conversion['Statistic'].str.replace("_", " ")
+    df_summary = pd.concat([df_summary, df_summary_conversion], ignore_index=True, sort=False)
 
     sheets_to_add = [(df_summary, "summary_stats"),
                      (df_no_images, "no_images"),
@@ -248,7 +280,7 @@ def generate_detailed_report_file(
                 worksheet.set_column(i, i, max_len)
             logger.info(f"Added sheet {sheet} to the detailed report file {output}")
 
-    return output
+    return output, dict(zip(df_summary['Statistic'], df_summary['Value']))
 
 
 def compare_mongo_elastic_study_list(studies_in_bia: list[dict[str, Any]], studies_in_mongo: list[dict[str, Any]]):

@@ -43,6 +43,12 @@ jobs:
           else
             echo "run=false" >> $GITHUB_OUTPUT
           fi
+          # Validation flag: true every 4 weeks (i.e., once a month)
+          if [ $((weeks % 4)) -eq 0 ]; then
+            echo "validation_flag=true" >> $GITHUB_OUTPUT
+          else
+            echo "validation_flag=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Stop early if not scheduled this week
         if: steps.check.outputs.run != 'true'

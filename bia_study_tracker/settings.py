@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     public_search_api: str = Field("")
     public_website_url: str = Field("")
     public_mongo_api: str = Field("")
+    validation_flag: bool = False
     slack_bot_token: str = Field("")
     slack_channel: str = Field("")
 
