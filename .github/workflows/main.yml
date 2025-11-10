@@ -17,6 +17,7 @@ jobs:
       SLACK_CHANNEL: ${{ secrets.SLACK_CHANNEL }}
       PUBLIC_SEARCH_API: ${{ vars.PUBLIC_SEARCH_API }}
       PUBLIC_WEBSITE_URL: ${{ vars.PUBLIC_WEBSITE_URL }}
+      PUBLIC_MONGO_API: ${{ vars.PUBLIC_MONGO_API }}
       FIRST_RUN_DATE: ${{ vars.REPORT_FIRST_RUN_DATE }}
     strategy:
       matrix:
